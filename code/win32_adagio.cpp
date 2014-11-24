@@ -7,16 +7,72 @@
    ======================================================================== */
 
 #include <windows.h>
+#include "glew/include/GL/glew.h"
 #include <gl/gl.h>
-#include <gl/glu.h>
+#include <gl/glu.h> 
 
 static bool Running = true;
 
 static HDC hDC; // GDI device context
 static HGLRC hRC; // GL rendering context
+BOOL keys[256]; // keyboard
+
+GLfloat cube_vertices[] = {
+    // front 
+    -1.0, -1.0,  1.0,
+    1.0, -1.0,  1.0,
+    1.0,  1.0,  1.0,
+    -1.0,  1.0,  1.0,
+    // back
+    -1.0, -1.0, -1.0,
+    1.0, -1.0, -1.0,
+    1.0,  1.0, -1.0,
+    -1.0,  1.0, -1.0,
+};
+
+GLfloat cube_colors[] = {
+    // front colors
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0,
+    1.0, 1.0, 1.0,
+    // back colors
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0,
+    1.0, 1.0, 1.0,
+};
+
+/* Global */
+GLuint ibo_cube_elements;
+
+/* init_resources */
+GLushort cube_elements[] = {
+    // front
+    0, 1, 2,
+    2, 3, 0,
+    // top
+    3, 2, 6,
+    6, 7, 3,
+    // back
+    7, 6, 5,
+    5, 4, 7,
+    // bottom
+    4, 5, 1,
+    1, 0, 4,
+    // left
+    4, 0, 3,
+    3, 7, 4,
+    // right
+    1, 5, 6,
+    6, 2, 1,
+};
+
+GLuint vbo_cube_vertices, vbo_cube_colors;
 
 GLvoid InitGL(GLsizei Width, GLsizei Height)
 {
+    glewInit();
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // This Will Clear The Background Color To Black
 	glClearDepth(1.0);			// Enables Clearing Of The Depth Buffer
 	glDepthFunc(GL_LESS);		// The Type Of Depth Test To Do
@@ -31,9 +87,14 @@ GLvoid InitGL(GLsizei Width, GLsizei Height)
 	glMatrixMode(GL_PROJECTION);		// Select The Projection Matrix
 	glLoadIdentity();			// Reset The Projection Matrix
 
-	gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);	// Calculate The Aspect Ratio Of The Window
+	// gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);	// Calculate The Aspect Ratio Of The Window
 
 	glMatrixMode(GL_MODELVIEW);		// Select The Modelview Matrix
+
+    glGenBuffers(1, &ibo_cube_elements);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_elements), cube_elements, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 GLvoid ResizeGLScene(GLsizei Width, GLsizei Height)
@@ -46,15 +107,21 @@ GLvoid ResizeGLScene(GLsizei Width, GLsizei Height)
 	glMatrixMode(GL_PROJECTION);		// Select The Projection Matrix
 	glLoadIdentity();			// Reset The Projection Matrix
 
-	gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);	// Calculate The Aspect Ratio Of The Window
+	// gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);	// Calculate The Aspect Ratio Of The Window
 	glMatrixMode(GL_MODELVIEW);		// Select The Modelview Matrix
 }
 
 GLvoid DrawGLScene(GLvoid)
 {
-    glClearColor(0.0f, 1.0f, 0.0f, 0.0f); // This Will Clear The Background Color To Black
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // This Will Clear The Background Color To Black
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
-	glLoadIdentity();						// Reset The View
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+    int size;
+    glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+    glDrawElements(GL_TRIANGLES, size/sizeof(GLushort), GL_UNSIGNED_SHORT, 0);
+
+    glLoadIdentity();						// Reset The View
 }
 
 LRESULT CALLBACK Win32MainWindowCallback(HWND hWnd,
@@ -140,16 +207,39 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND hWnd,
             break;
 
         case WM_SIZE:
+            // DEVMODE dmScreenSettings;							// Developer Mode
             OutputDebugString ("WM_SIZE\n");
+            // if (wParam == SIZE_MAXIMIZED) {
+            //     memset(&dmScreenSettings, 0, sizeof(DEVMODE)); // Clear Room To Store Settings
+            //     dmScreenSettings.dmSize       = sizeof(DEVMODE); // Size Of The Devmode Structure
+            //     dmScreenSettings.dmPelsWidth  = 640; // Screen Width
+            //     dmScreenSettings.dmPelsHeight = 480; // Screen Height
+            //     dmScreenSettings.dmFields     = DM_PELSWIDTH | DM_PELSHEIGHT; // Pixel Mode
+            //     ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN); // Switch To Full Screen
+            // }
+            // else if (wParam == SIZE_RESTORED) {
+            //     memset(&dmScreenSettings, 0, sizeof(DEVMODE)); // Clear Room To Store Settings
+            //     dmScreenSettings.dmSize       = sizeof(DEVMODE); // Size Of The Devmode Structure
+            //     dmScreenSettings.dmPelsWidth  = 640; // Screen Width
+            //     dmScreenSettings.dmPelsHeight = 480; // Screen Height
+            //     dmScreenSettings.dmFields     = DM_PELSWIDTH | DM_PELSHEIGHT; // Pixel Mode
+            //     ChangeDisplaySettings(&dmScreenSettings, 0); // Switch To Full Screen
+            // }
             ResizeGLScene(LOWORD(lParam),HIWORD(lParam));
             break;
 
             // i/o
+        case WM_KEYDOWN:
+            keys[wParam] = TRUE;
+            break;
+
+        case WM_KEYUP:
+            keys[wParam] = FALSE;
+            break;
+
         case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
         case WM_MOUSEMOVE:
-        case WM_KEYDOWN:
-        case WM_KEYUP:
         default:
             result = DefWindowProc(hWnd, uMsg, wParam, lParam);
             break;
