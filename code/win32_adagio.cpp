@@ -17,17 +17,78 @@ static HDC hDC; // GDI device context
 static HGLRC hRC; // GL rendering context
 BOOL keys[256]; // keyboard
 
+GLfloat MVP[] = {0.0, 0.0, 0.0, 0.0};
+// GLfloat cube_vertices[] = {
+//     // front 
+//     -1.0, -1.0,  1.0,
+//     1.0, -1.0,  1.0,
+//     1.0,  1.0,  1.0,
+//     -1.0,  1.0, 1.0,
+//     // back
+//     -1.0, -1.0, -1.0,
+//     1.0, -1.0, -1.0,
+//     1.0,  1.0, -1.0,
+//     -1.0,  1.0, -1.0,
+// };
+
 GLfloat cube_vertices[] = {
     // front 
-    -1.0, -1.0,  1.0,
-    1.0, -1.0,  1.0,
-    1.0,  1.0,  1.0,
-    -1.0,  1.0,  1.0,
+    -1.0, -1.0,  1.0, // 0
+    1.0, -1.0,  1.0,  // 1
+    1.0,  1.0,  1.0,  // 2
+    1.0,  1.0,  1.0,  // 2
+    -1.0,  1.0, 1.0,  // 3
+    -1.0, -1.0,  1.0, // 0
+
+    // top
+    -1.0,  1.0, 1.0,  // 3
+    1.0,  1.0,  1.0,  // 2
+    1.0,  1.0, -1.0,  // 6
+    1.0,  1.0, -1.0,  // 6
+    -1.0,  1.0, -1.0, //7
+    -1.0,  1.0, 1.0,  // 3
+
     // back
-    -1.0, -1.0, -1.0,
-    1.0, -1.0, -1.0,
-    1.0,  1.0, -1.0,
-    -1.0,  1.0, -1.0,
+    -1.0,  1.0, -1.0, //7
+    1.0,  1.0, -1.0,  // 6
+    1.0, -1.0, -1.0,  // 5
+    1.0, -1.0, -1.0,  // 5
+    -1.0, -1.0, -1.0, // 4
+    -1.0,  1.0, -1.0, //7
+
+    // bottom
+    -1.0, -1.0, -1.0, // 4
+    1.0, -1.0, -1.0,  // 5
+    1.0, -1.0,  1.0,  // 1
+    1.0, -1.0,  1.0,  // 1
+    -1.0, -1.0,  1.0, // 0
+    -1.0, -1.0, -1.0, // 4
+
+    // left
+    -1.0, -1.0, -1.0, // 4
+    -1.0, -1.0,  1.0, // 0
+    -1.0,  1.0, 1.0,  // 3
+    -1.0,  1.0, 1.0,  // 3
+    -1.0,  1.0, -1.0, //7
+    -1.0, -1.0, -1.0, // 4
+
+    // right
+    1.0, -1.0,  1.0,  // 1
+    1.0, -1.0, -1.0,  // 5
+    1.0,  1.0, -1.0,  // 6
+    1.0,  1.0, -1.0,  // 6
+    1.0,  1.0,  1.0,  // 2
+    1.0, -1.0,  1.0,  // 1
+
+    // -1.0,  1.0, -1.0, //7
+    // -1.0, -1.0,  1.0, // 0
+    // 1.0, -1.0,  1.0,  // 1
+    // 1.0,  1.0,  1.0,  // 2
+    // -1.0,  1.0, 1.0,  // 3
+    // -1.0, -1.0, -1.0, // 4
+    // 1.0, -1.0, -1.0,  // 5
+    // 1.0,  1.0, -1.0,  // 6
+    // -1.0,  1.0, -1.0, //7
 };
 
 GLfloat cube_colors[] = {
@@ -69,6 +130,80 @@ GLushort cube_elements[] = {
 };
 
 GLuint vbo_cube_vertices, vbo_cube_colors;
+GLuint program;
+GLint attribute_coord3d;
+GLint uniform_MVP;
+
+int init_resources(void)
+{
+    GLint compile_ok = GL_FALSE, link_ok = GL_FALSE;
+
+    // Vertex Shader
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    const char *vs_source =
+// #ifdef GL_ES_VERSION_2_0
+//         "#version 100\n"
+// #else
+        "#version 420\n"
+// #endif
+        "precision highp float;\n"
+        "in vec3 coord3d;\n"
+        // "uniform mat4 mvpMatrix;\n"
+        "void main(void) {\n"
+        // "   gl_Position = mvpMatrix * vec4(coord3d, 1.0);\n"
+        "   gl_Position = vec4(coord3d, 1.0);\n"
+        "}\n";
+    glShaderSource(vs, 1, &vs_source, NULL);
+    glCompileShader(vs);
+    glGetShaderiv(vs, GL_COMPILE_STATUS, &compile_ok);
+    if (!compile_ok) OutputDebugString("Error in vertex shader\n");
+
+    // Fragment Shader
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    const char *fs_source =
+        "#version 420\n"
+        "precision highp float;\n"
+        "void main(void) {\n"
+        "  gl_FragColor[0] = 1.0;\n"
+        "  gl_FragColor[1] = 1.0;\n"
+        "  gl_FragColor[2] = 1.0;\n"
+        "}\n";
+    glShaderSource(fs, 1, &fs_source, NULL);
+    glCompileShader(fs);
+    glGetShaderiv(fs, GL_COMPILE_STATUS, &compile_ok);
+    if (!compile_ok) OutputDebugString("Error in fragment shader\n");
+
+    // Link Shaders
+    program = glCreateProgram();
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &link_ok);
+    if (!link_ok) OutputDebugString("Error during linking\n");
+
+    // Attributes
+    const char *attribute_name = "coord3d";
+    attribute_coord3d = glGetAttribLocation(program, attribute_name);
+    if (attribute_coord3d == -1)
+    {
+        OutputDebugString ("Could not bind attribute\n");
+        return 0;
+    }
+
+    // uniforms
+    uniform_MVP = glGetUniformLocation(program, "mvpMatrix");
+    if (uniform_MVP == -1)
+    {
+        OutputDebugString ("Could not bind uniform\n");
+        return 0;
+    }
+    return 1;
+}
+
+void free_resources()
+{
+    glDeleteProgram(program);
+}
 
 GLvoid InitGL(GLsizei Width, GLsizei Height)
 {
@@ -91,10 +226,11 @@ GLvoid InitGL(GLsizei Width, GLsizei Height)
 
 	glMatrixMode(GL_MODELVIEW);		// Select The Modelview Matrix
 
-    glGenBuffers(1, &ibo_cube_elements);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_elements), cube_elements, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    init_resources();
+    // glGenBuffers(1, &ibo_cube_elements);
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_elements), cube_elements, GL_STATIC_DRAW);
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 GLvoid ResizeGLScene(GLsizei Width, GLsizei Height)
@@ -116,11 +252,22 @@ GLvoid DrawGLScene(GLvoid)
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // This Will Clear The Background Color To Black
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
-    int size;
-    glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
-    glDrawElements(GL_TRIANGLES, size/sizeof(GLushort), GL_UNSIGNED_SHORT, 0);
+	glMatrixMode(GL_PROJECTION);		// Select The Projection Matrix
+    glUseProgram(program);
+    glEnableVertexAttribArray(attribute_coord3d);
+    // Describe vertex array
+    glVertexAttribPointer(attribute_coord3d, 3, GL_FLOAT, GL_FALSE, 0, cube_vertices);
+    // set mvp
+    glUniformMatrix4fv(uniform_MVP, 1, GL_FALSE, MVP);
+    glDrawArrays (GL_TRIANGLES, 0, 36);
+    glDisableVertexAttribArray(attribute_coord3d);
 
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+    // int size;
+    // glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+    // glDrawElements(GL_TRIANGLES, size/sizeof(GLushort), GL_UNSIGNED_SHORT, 0);
+
+	glMatrixMode(GL_MODELVIEW);		// Select The Modelview Matrix
     glLoadIdentity();						// Reset The View
 }
 

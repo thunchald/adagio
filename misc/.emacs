@@ -1,7 +1,13 @@
 (add-to-list 'load-path "~/elisp")
 (setq inhibit-splash-screen t)
 
-; packages
+; THEME
+(require 'seti-theme)
+
+(load-theme 'seti 'NO-CONFIRM)
+(setq-default cursor-type 'box)
+
+					; packages
 (when (>= emacs-major-version 24)
   (require 'package)
   (package-initialize)
@@ -17,12 +23,9 @@
 (global-set-key (kbd "C-;") 'comment-dwim)
 
 ;; Snippets
-(add-to-list 'load-path "~/elisp")
-(require 'yasnippet)
-(yas-global-mode 1)
+;; (require 'yasnippet)
+;; (yas-global-mode 1)
 
-; THEME
-(require 'seti-theme)
 
 ;; Zaps until character, but will not delete the given character
 (defun zap-until-char (arg char)
@@ -635,8 +638,9 @@ BEG and END (region to sort)."
 
 ; Commands
 (set-variable 'grep-command "grep -irHn ")
-(when casey-win32
-    (set-variable 'grep-command "findstr -s -n -i -l "))
+;; (when casey-win32
+;; (set-variable 'grep-command "findstr -s -n -i -l ")
+;; (set-variable 'grep-command "findstr -n -i -l ")
 
 ; Smooth scroll
 (setq scroll-step 3)
@@ -680,6 +684,7 @@ BEG and END (region to sort)."
 ;; (define-key global-map [C-tab] 'indent-region)
 ;; (define-key global-map "	" 'indent-region)
 
+
 (defun casey-never-split-a-window
     "Never, ever split a window.  Why would anyone EVER want you to do that??"
     nil)
@@ -708,5 +713,3 @@ BEG and END (region to sort)."
 )
 (add-hook 'window-setup-hook 'post-load-stuff t)
 
-(load-theme 'seti 'NO-CONFIRM)
-(setq-default cursor-type 'box)
